@@ -1,3 +1,11 @@
+kafcat (0.2.0-2) unstable; urgency=low
+
+  * do not extract messages from the topic beginning by default,
+    but enable such behaviour with -b command line option;
+  * commit current position before termination.
+
+ -- Aleksey Morarash <aleksey.morarash@massivesolutions.eu>  Fri, 12 Dec 2014 11:26:00 +0200
+
 kafcat (0.1.0-3) unstable; urgency=low
 
   * Initial release.
