@@ -1,3 +1,10 @@
+kafcat (0.3.0-3) unstable; urgency=low
+
+  * add --maxtime=Seconds command line option;
+  * add --id=ClientID command line option.
+
+ -- Aleksey Morarash <aleksey.morarash@massivesolutions.eu>  Tue, 21 Apr 2015 14:02:00 +0300
+
 kafcat (0.2.0-2) unstable; urgency=low
 
   * do not extract messages from the topic beginning by default,
