@@ -3,7 +3,7 @@ kafcat (0.3.0-3) unstable; urgency=low
   * add --maxtime=Seconds command line option;
   * add --id=ClientID command line option.
 
- -- Aleksey Morarash <aleksey.morarash@massivesolutions.eu>  Tue, 21 Apr 2015 14:02:00 +0300
+ -- Aleksey Morarash <aleksey.morarash@envisionx.co>  Tue, 21 Apr 2015 14:02:00 +0300
 
 kafcat (0.2.0-2) unstable; urgency=low
 
@@ -11,10 +11,10 @@ kafcat (0.2.0-2) unstable; urgency=low
     but enable such behaviour with -b command line option;
   * commit current position before termination.
 
- -- Aleksey Morarash <aleksey.morarash@massivesolutions.eu>  Fri, 12 Dec 2014 11:26:00 +0200
+ -- Aleksey Morarash <aleksey.morarash@envisionx.co>  Fri, 12 Dec 2014 11:26:00 +0200
 
 kafcat (0.1.0-3) unstable; urgency=low
 
   * Initial release.
 
- -- Aleksey Morarash <aleksey.morarash@massivesolutions.eu>  Sun, 30 Nov 2014 19:14:00 +0200
+ -- Aleksey Morarash <aleksey.morarash@envisionx.co>  Sun, 30 Nov 2014 19:14:00 +0200
