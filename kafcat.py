@@ -27,6 +27,10 @@ def usage(exitcode = 1):
         '                Maximum time to work. If defined, kafcat will\n'
         '                exit after the given amount of time even if there\n'
         '                is data to read in the Kafka;\n'
+        '  --maxmsgs Count\n'
+        '                Maximum messages to read. If defined, kafcat will\n'
+        '                exit after Count messages will be read even if\n'
+        '                there is data to read in the Kafka;\n'
         '  -b            extract from the beginning;\n'
         '  -f            output appended data as the topic grows.\n')
     sys.exit(exitcode)
@@ -36,7 +40,8 @@ if __name__ == '__main__':
     # Parse command line options
     try:
         cmd_opts, cmd_args = getopt.getopt(
-            sys.argv[1:], 'bf', ['host=', 'port=', 'id=', 'maxtime='])
+            sys.argv[1:], 'bf', ['host=', 'port=', 'id=', 'maxtime=',
+                                 'maxmsgs='])
         cmd_opts = dict(cmd_opts)
     except getopt.GetoptError as exc:
         sys.stderr.write('Error: ' + str(exc) + '\n')
@@ -52,6 +57,9 @@ if __name__ == '__main__':
         maxtime = cmd_opts.get('--maxtime', None)
         if maxtime is not None:
             maxtime = int(maxtime)
+        maxmsgs = cmd_opts.get('--maxmsgs', None)
+        if maxmsgs is not None:
+            maxmsgs = int(maxmsgs)
         client = kafka.KafkaClient(host + ':' + str(port))
         # Create consumer object
         consumer = kafka.SimpleConsumer(
@@ -61,13 +69,17 @@ if __name__ == '__main__':
             consumer.seek(0, 0)
             consumer.commit()
         # start consuming
+        total_messages_read = 0
         started = time.time()
         while True:
             if maxtime is not None and time.time() >= started + maxtime:
                 break
             for message in consumer:
+                total_messages_read += 1
                 sys.stdout.write(message.message.value + '\n')
                 if maxtime is not None and time.time() >= started + maxtime:
+                    break
+                if maxmsgs is not None and total_messages_read >= maxmsgs:
                     break
             if '-f' not in cmd_opts:
                 break
