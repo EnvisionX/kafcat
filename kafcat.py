@@ -5,10 +5,12 @@ Read Kafka topic contents and output it to the stdout.
 """
 
 import getopt
-import kafka
 import os.path
 import sys
 import time
+
+import kafka
+import kafka.common
 
 
 def usage(exitcode = 1):
@@ -74,13 +76,41 @@ if __name__ == '__main__':
         while True:
             if maxtime is not None and time.time() >= started + maxtime:
                 break
-            for message in consumer:
-                total_messages_read += 1
-                sys.stdout.write(message.message.value + '\n')
-                if maxtime is not None and time.time() >= started + maxtime:
-                    break
-                if maxmsgs is not None and total_messages_read >= maxmsgs:
-                    break
+            try:
+                for message in consumer:
+                    total_messages_read += 1
+                    sys.stdout.write(message.message.value + '\n')
+                    if maxtime is not None and \
+                       time.time() >= started + maxtime:
+                        break
+                    if maxmsgs is not None and \
+                       total_messages_read >= maxmsgs:
+                        break
+            except kafka.common.OffsetOutOfRangeError:
+                if total_messages_read == 0:
+                    # This kind of error arises when we try to fetch
+                    # logs which already was rolled out from the storage.
+                    # On the server side Kafka emits message like:
+                    #     "kafka.common.OffsetOutOfRangeException: Request
+                    #     for offset 0 but we only have log segments in
+                    #     the range 39943 to 11471647."
+                    # This issue is described in
+                    #  https://github.com/mumrah/kafka-python/issues/72
+                    # The workaround is to make consumer.seek(0,0).
+                    # Obviously, the issue is not reproduced when kafcat
+                    # is invoked with '-b' command line option.
+                    consumer.seek(0, 0)
+                    consumer.commit()
+                    # try to consume again:
+                    for message in consumer:
+                        total_messages_read += 1
+                        sys.stdout.write(message.message.value + '\n')
+                        if maxtime is not None and \
+                           time.time() >= started + maxtime:
+                            break
+                        if maxmsgs is not None and \
+                           total_messages_read >= maxmsgs:
+                            break
             if '-f' not in cmd_opts:
                 break
         # save current position for the future use
