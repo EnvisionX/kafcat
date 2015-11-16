@@ -6,11 +6,16 @@ Read Kafka topic contents and output it to the stdout.
 
 import argparse
 import os.path
+import struct
 import sys
 import time
 
 import kafka
 import kafka.common
+import ktlv
+
+
+MAGIC_KTLV_MARKER = '\xc0\xdeKTLV'
 
 
 def parse_cmd_args():
@@ -49,6 +54,12 @@ def parse_cmd_args():
         '-f', '--follow', action='store_true',
         help='Output appended data as the topic grows.')
     parser.add_argument(
+        '--human', action='store_true',
+        help='Convert binary messages to a human readable format.'
+        ' Makes sense when messages are encoded with KTLV.'
+        ' Note the result is readable by humans, but not by machines'
+        ' anymore!!!')
+    parser.add_argument(
         'topic_name',
         help='Kafka topic to read.')
     return parser.parse_args()
@@ -67,6 +78,44 @@ def port_number(string):
     if 0 < port_number <= 0xffff:
         return port_number
     raise ValueError
+
+
+try:
+    from envx_commons import k2n
+except Exception:
+    def k2n(key):
+        return key
+
+
+def output(message, human):
+    """
+    Write the message to the stdout stream.
+
+    :param message: log message fetched from Apache Kafka.
+    :type message: string
+
+    :param human: produce only human readable output or not.
+    :type human: boolean
+    """
+    if message.startswith(MAGIC_KTLV_MARKER):
+        # It is a binary object, encoded with KTLV.
+        if human:
+            # Decode to human readable format
+            try:
+                message = message[len(MAGIC_KTLV_MARKER):]
+                message_len = struct.unpack('>H', message[:2])[0]
+                message = message[2:]
+                d = ktlv.dec(message)
+                sys.stdout.write('%r\n' % [(k2n(k), v) for k, _, v in d])
+            except Exception as exc:
+                sys.stdout.write('Failed to decode KTLV msg: %r\n' % exc)
+        else:
+            # Output as is, because it already prepended
+            # with message length.
+            sys.stdout.write(message)
+    else:
+        # It is a text message. Suffix it with newline char.
+        sys.stdout.write(message + '\n')
 
 
 if __name__ == '__main__':
@@ -93,7 +142,7 @@ if __name__ == '__main__':
             try:
                 for message in consumer:
                     total_messages_read += 1
-                    sys.stdout.write(message.message.value + '\n')
+                    output(message.message.value, cmd_opts.human)
                     if maxtime is not None and \
                        time.time() >= started + maxtime:
                         break
@@ -118,7 +167,7 @@ if __name__ == '__main__':
                     # try to consume again:
                     for message in consumer:
                         total_messages_read += 1
-                        sys.stdout.write(message.message.value + '\n')
+                        output(message.message.value, cmd_opts.human)
                         if maxtime is not None and \
                            time.time() >= started + maxtime:
                             break
