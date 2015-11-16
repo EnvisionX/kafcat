@@ -6,8 +6,3 @@ export DH_OPTIONS
 
 %:
 	dh $@
-
-DESTDIR = debian/kafcat
-override_dh_auto_install:
-	install -m 755 -d $(DESTDIR)/usr/bin
-	install -m 755 kafcat.py $(DESTDIR)/usr/bin/kafcat
