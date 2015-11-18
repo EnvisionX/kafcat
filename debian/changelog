@@ -1,3 +1,11 @@
+kafcat (0.5.0) unstable; urgency=low
+
+  * integrate with KTLV codec
+  * replace getopt with argparse
+  * deb specs: simplify staged installation
+
+ -- Aleksey Morarash <aleksey.morarash@gmail.com>  Wed, 18 Nov 2015 16:38:19 +0200
+
 kafcat (0.4.1) unstable; urgency=low
 
   * fix OffsetOutOfRangeError crash.
