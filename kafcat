@@ -179,9 +179,9 @@ if __name__ == '__main__':
             if not cmd_opts.follow:
                 break
         # save current position for the future use
-        consumer.commit()
+        consumer.stop()
     except KeyboardInterrupt:
         if consumer is not None:
             # save current position for the future use
-            consumer.commit()
+            consumer.stop()
         sys.exit(130)
