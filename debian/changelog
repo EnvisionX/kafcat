@@ -1,3 +1,11 @@
+kafcat (0.5.1) unstable; urgency=low
+
+  * fix --maxmsgs option
+  * finalize Kafka consumer properly
+  * minor fix: re-raise not handled exception
+
+ -- Aleksey Morarash <aleksey.morarash@gmail.com>  Thu, 03 Dec 2015 16:35:46 +0200
+
 kafcat (0.5.0) unstable; urgency=low
 
   * integrate with KTLV codec
