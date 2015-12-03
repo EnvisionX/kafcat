@@ -139,6 +139,8 @@ if __name__ == '__main__':
         while True:
             if maxtime is not None and time.time() >= started + maxtime:
                 break
+            if maxmsgs is not None and total_messages_read >= maxmsgs:
+                break
             try:
                 for message in consumer:
                     total_messages_read += 1
