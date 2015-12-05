@@ -5,6 +5,7 @@ Read Kafka topic contents and output it to the stdout.
 """
 
 import argparse
+import logging
 import os.path
 import struct
 import sys
@@ -59,6 +60,9 @@ def parse_cmd_args():
         ' Makes sense when messages are encoded with KTLV.'
         ' Note the result is readable by humans, but not by machines'
         ' anymore!!!')
+    parser.add_argument(
+        '--debug', action = 'store_true',
+        help = 'Be very-very verbose (use stderr).')
     parser.add_argument(
         'topic_name',
         help='Kafka topic to read.')
@@ -120,6 +124,11 @@ def output(message, human):
 
 if __name__ == '__main__':
     cmd_opts = parse_cmd_args()
+    # Initialize logging
+    logging.basicConfig(
+        format = '%(asctime)s %(name)s %(levelname)1.1s %(message)s',
+        datefmt = '%Y-%m-%d %H:%M:%S',
+        level = logging.DEBUG if cmd_opts.debug else logging.WARNING)
     consumer = None
     try:
         # connect to Kafka
