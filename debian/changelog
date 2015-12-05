@@ -1,3 +1,9 @@
+kafcat (0.5.2) unstable; urgency=low
+
+  * initialize logging subsystem, add --debug cmd option
+
+ -- Aleksey Morarash <aleksey.morarash@gmail.com>  Sat, 05 Dec 2015 12:20:37 +0200
+
 kafcat (0.5.1) unstable; urgency=low
 
   * fix --maxmsgs option
