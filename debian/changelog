@@ -1,3 +1,9 @@
+kafcat (0.6.0) unstable; urgency=low
+
+  * remove support for --human command line option
+
+ -- Aleksey Morarash <aleksey.morarash@gmail.com>  Tue, 22 Dec 2015 16:27:22 +0200
+
 kafcat (0.5.2) unstable; urgency=low
 
   * initialize logging subsystem, add --debug cmd option
