@@ -13,7 +13,6 @@ import time
 
 import kafka
 import kafka.common
-import ktlv
 
 
 MAGIC_KTLV_MARKER = '\xc0\xdeKTLV'
@@ -56,10 +55,7 @@ def parse_cmd_args():
         help='Output appended data as the topic grows.')
     parser.add_argument(
         '--human', action='store_true',
-        help='Convert binary messages to a human readable format.'
-        ' Makes sense when messages are encoded with KTLV.'
-        ' Note the result is readable by humans, but not by machines'
-        ' anymore!!!')
+        help='DEPRECATED. Use pipe to envx-log-decoder instead.')
     parser.add_argument(
         '--debug', action = 'store_true',
         help = 'Be very-very verbose (use stderr).')
@@ -91,32 +87,16 @@ except Exception:
         return key
 
 
-def output(message, human):
+def output(message):
     """
     Write the message to the stdout stream.
 
     :param message: log message fetched from Apache Kafka.
     :type message: string
-
-    :param human: produce only human readable output or not.
-    :type human: boolean
     """
     if message.startswith(MAGIC_KTLV_MARKER):
         # It is a binary object, encoded with KTLV.
-        if human:
-            # Decode to human readable format
-            try:
-                message = message[len(MAGIC_KTLV_MARKER):]
-                message_len = struct.unpack('>H', message[:2])[0]
-                message = message[2:]
-                d = ktlv.dec(message)
-                sys.stdout.write('%r\n' % [(k2n(k), v) for k, _, v in d])
-            except Exception as exc:
-                sys.stdout.write('Failed to decode KTLV msg: %r\n' % exc)
-        else:
-            # Output as is, because it already prepended
-            # with message length.
-            sys.stdout.write(message)
+        sys.stdout.write(message)
     else:
         # It is a text message. Suffix it with newline char.
         sys.stdout.write(message + '\n')
@@ -129,6 +109,12 @@ if __name__ == '__main__':
         format = '%(asctime)s %(name)s %(levelname)1.1s %(message)s',
         datefmt = '%Y-%m-%d %H:%M:%S',
         level = logging.DEBUG if cmd_opts.debug else logging.WARNING)
+    if cmd_opts.human:
+        logging.getLogger('kafcat').critical(
+            '--human command line option is not supported anymore.'
+            ' Pipe to envx-log-decoder to show logs in human'
+            ' readable format.')
+        sys.exit(1)
     consumer = None
     try:
         # connect to Kafka
@@ -153,7 +139,7 @@ if __name__ == '__main__':
             try:
                 for message in consumer:
                     total_messages_read += 1
-                    output(message.message.value, cmd_opts.human)
+                    output(message.message.value)
                     if maxtime is not None and \
                        time.time() >= started + maxtime:
                         break
@@ -178,7 +164,7 @@ if __name__ == '__main__':
                     # try to consume again:
                     for message in consumer:
                         total_messages_read += 1
-                        output(message.message.value, cmd_opts.human)
+                        output(message.message.value)
                         if maxtime is not None and \
                            time.time() >= started + maxtime:
                             break
