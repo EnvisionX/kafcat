@@ -121,7 +121,8 @@ if __name__ == '__main__':
         client = kafka.KafkaClient('%s:%d' % (cmd_opts.host, cmd_opts.port))
         # Create consumer object
         consumer = kafka.SimpleConsumer(
-            client, cmd_opts.id, cmd_opts.topic_name, iter_timeout = 0.5)
+            client, cmd_opts.id, cmd_opts.topic_name, iter_timeout = 0.5,
+            fetch_size_bytes=65535, buffer_size=65535, max_buffer_size=None)
         if cmd_opts.begin:
             # seek very first message
             consumer.seek(0, 0)
