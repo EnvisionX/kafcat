@@ -1,3 +1,10 @@
+kafcat (0.7.0) unstable; urgency=low
+
+  * implement --now option
+  * increase buffer size (for big messages)
+
+ -- Aleksey Morarash <aleksey.morarash@gmail.com>  Wed, 06 Jan 2016 17:45:38 +0200
+
 kafcat (0.6.0) unstable; urgency=low
 
   * remove support for --human command line option
