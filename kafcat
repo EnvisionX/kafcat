@@ -15,6 +15,10 @@ import kafka
 import kafka.common
 
 
+# See details in kafka.consumer.SimpleConsumer.seek()
+EARLIEST_OFFSET = 0
+LATEST_OFFSET = 2
+
 MAGIC_KTLV_MARKER = '\xc0\xdeKTLV'
 
 
@@ -47,9 +51,13 @@ def parse_cmd_args():
         help='Maximum messages to read. If defined, kafcat will'
         ' exit after Count messages will be read even if'
         ' there is data to read in the Kafka.')
-    parser.add_argument(
+    group = parser.add_mutually_exclusive_group()
+    group.add_argument(
         '-b', '--begin', action='store_true',
         help='Extract from the beginning.')
+    group.add_argument(
+        '-n', '--now', action='store_true',
+        help='Omit not fetched logs, fetch only new ones.')
     parser.add_argument(
         '-f', '--follow', action='store_true',
         help='Output appended data as the topic grows.')
@@ -125,7 +133,11 @@ if __name__ == '__main__':
             fetch_size_bytes=65535, buffer_size=65535, max_buffer_size=None)
         if cmd_opts.begin:
             # seek very first message
-            consumer.seek(0, 0)
+            consumer.seek(offset=0, whence=EARLIEST_OFFSET)
+            consumer.commit()
+        elif cmd_opts.now:
+            # seek the most recent message
+            consumer.seek(offset=0, whence=LATEST_OFFSET)
             consumer.commit()
         # start consuming
         total_messages_read = 0
