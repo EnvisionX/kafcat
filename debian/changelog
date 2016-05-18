@@ -1,3 +1,9 @@
+kafcat (1.0.0) unstable; urgency=low
+
+  * implement --from-date and --to-date cmd options
+
+ -- Aleksey Morarash <aleksey.morarash@gmail.com>  Wed, 18 May 2016 15:09:46 +0300
+
 kafcat (0.7.0) unstable; urgency=low
 
   * implement --now option
