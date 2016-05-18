@@ -13,7 +13,13 @@ import time
 
 import kafka
 import kafka.common
+import ktlv
 
+import envx_commons
+import envx_etl
+
+
+DEF_DATE_SEARCH_ACCURACY = 100
 
 # See details in kafka.consumer.SimpleConsumer.seek()
 EARLIEST_OFFSET = 0
@@ -51,6 +57,14 @@ def parse_cmd_args():
         help='Maximum messages to read. If defined, kafcat will'
         ' exit after Count messages will be read even if'
         ' there is data to read in the Kafka.')
+    parser.add_argument(
+        '--date-search-accuracy', type=posint,
+        default=str(DEF_DATE_SEARCH_ACCURACY),
+        help='Make sense only when --from-date and/or --to-date'
+        ' options are set. As far as messages in the topic can be'
+        ' slightly shuffled, kafcat will search interested'
+        ' log messages near found date&time border +/- ACCURACY'
+        ' messages. Default is %r.' % DEF_DATE_SEARCH_ACCURACY)
     group = parser.add_mutually_exclusive_group()
     group.add_argument(
         '-b', '--begin', action='store_true',
@@ -58,9 +72,19 @@ def parse_cmd_args():
     group.add_argument(
         '-n', '--now', action='store_true',
         help='Omit not fetched logs, fetch only new ones.')
-    parser.add_argument(
+    group.add_argument(
+        '--from-date', type=datetime,
+        help='Fetch log messages which have date and time greater'
+        ' or equal given date&time.')
+    group = parser.add_mutually_exclusive_group()
+    group.add_argument(
         '-f', '--follow', action='store_true',
         help='Output appended data as the topic grows.')
+    group.add_argument(
+        '--to-date', type=datetime,
+        help='Fetch log messages which have date and time less'
+        ' or equal given date&time. Note --to-date=2016-05-18 means'
+        ' "until 2016-05-18T00:00:00", but not "until 2016-05-18T23:59:59"')
     parser.add_argument(
         '--human', action='store_true',
         help='DEPRECATED. Use pipe to envx-log-decoder instead.')
@@ -71,6 +95,50 @@ def parse_cmd_args():
         'topic_name',
         help='Kafka topic to read.')
     return parser.parse_args()
+
+
+def posint(string):
+    """
+    Convert string to posititve integer.
+
+    :param string: text representation of positive integer.
+    :type string: string
+
+    :rtype: integer
+    """
+    integer = int(string)
+    if 0 < integer:
+        return integer
+    raise ValueError
+
+
+def datetime(string):
+    """
+    Convert string to date/time.
+
+    :param string: text representation of date and time.
+    :type string: string
+
+    :rtype: time.struct_time
+    """
+    string = string.strip()
+    recognized_formats = ['%Y-%m-%d %H:%M:%S',
+                          '%Y-%m-%d %H:%M',
+                          '%Y-%m-%d %H',
+                          '%Y-%m-%d',
+                          '%Y-%m-%dT%H:%M:%S',
+                          '%Y-%m-%dT%H:%M',
+                          '%Y-%m-%dT%H']
+    parsed = None
+    for fmt in recognized_formats:
+        try:
+            parsed = time.strptime(string, fmt)
+            break
+        except ValueError:
+            pass
+    if parsed is not None:
+        return parsed
+    raise ValueError
 
 
 def port_number(string):
@@ -110,6 +178,191 @@ def output(message):
         sys.stdout.write(message + '\n')
 
 
+def get_min_max_offsets(client, topic):
+    """
+    Fetch offsets of the first and the last message in the topic.
+
+    :param client: Apache Kafka interface
+    :type client: kafka.KafkaClient
+
+    :param topic: Kafka topic name
+    :type topic: string
+
+    :rtype: (Min, Max) or NoneType, where Min and Max are positive integers
+    """
+    partition = 0
+    responses = client.send_offset_request(
+        [kafka.common.OffsetRequest(topic, partition, -2, 1)])
+    response = responses[0]
+    (min_offset, ) = response.offsets
+    responses = client.send_offset_request(
+        [kafka.common.OffsetRequest(topic, partition, -1, 1)])
+    response = responses[0]
+    (max_offset, ) = response.offsets
+    max_offset -= 1  # Kafka responses with offset of the next
+                     # message which will be appended to the partition
+    if min_offset < max_offset:
+        return (min_offset, max_offset)
+    logging.getLogger().error(
+        'Failed to fetch min/max offsets for topic %r'
+        ' (topic is empty?)', topic)
+
+
+def search_offset_by_date(client, topic, min_offset, max_offset,
+                          searched_datetime, accuracy):
+    """
+    Search first log message with best match of given date and time.
+
+    :param client: Apache Kafka interface
+    :type client: kafka.KafkaClient
+
+    :param topic: Kafka topic name
+    :type topic: string
+
+    :param min_offset: offset of the first message in the topic
+    :type min_offset: integer
+
+    :param max_offset: offset of the first message in the topic
+    :type max_offset: integer
+
+    :param searched_datetime: date&time to search
+    :type searched_datetime: time.struct_time
+
+    :param accuracy: in case of a positive search this value will
+        be added to the result offset.
+    :type accuracy: integer
+
+    :rtype: integer or NoneType
+    """
+    orig_min_offset = min_offset
+    orig_max_offset = max_offset
+    # main loop
+    while min_offset < max_offset - 1:
+        offset = (min_offset + max_offset) / 2
+        message = fetch_message_by_offset(client, topic, offset)
+        if message is None:
+            return None
+        lm_datetime = get_message_datetime(message)
+        if lm_datetime is None:
+            return None
+        if searched_datetime < lm_datetime:
+            max_offset = offset
+        elif lm_datetime < searched_datetime:
+            min_offset = offset
+    # fix result offset according to accuracy
+    offset += accuracy
+    if offset < orig_min_offset:
+        offset = orig_min_offset
+    if orig_max_offset < offset:
+        offset = orig_max_offset
+    return offset
+
+
+def get_message_datetime(message):
+    """
+    Fetch date and time of the log message, according to its type.
+
+    :param message: log message fetched from Apache Kafka topic.
+    :type message: string
+
+    :rtype: time.struct_time or NoneType
+    """
+    if message is None:
+        return None
+    if message.startswith(envx_commons.MAGIC_KTLV_MARKER):
+        # Binary log message
+        message = message[len(envx_commons.MAGIC_KTLV_MARKER) + 2:]
+        decoded = ktlv.decd(message)
+        (_, fvalue) = decoded[envx_commons.K_TIMESTAMP]
+        timestamp = envx_etl.convert_timestamp(fvalue)
+        return time.gmtime(timestamp)
+    logging.getLogger().error(
+        'unknown message type, cannot fetch date and time: %r',
+        message)
+
+
+def fetch_message_by_offset(client, topic, offset):
+    """
+    Fetch one message from Apache Kafka, identified by offset.
+
+    :param client: Apache Kafka interface
+    :type client: kafka.KafkaClient
+
+    :param topic: Kafka topic name
+    :type topic: string
+
+    :param offset: offset to fetch from.
+    :type offset: integer
+
+    :rtype: string or NoneType
+    """
+    partition = 0
+    max_bytes = 102400
+    payload = kafka.common.FetchRequest(topic, partition, offset, max_bytes)
+    try:
+        responses = client.send_fetch_request([payload], min_bytes=1)
+        response = responses[0]
+        return list(response.messages)[0].message.value
+    except Exception as exc:
+        logging.getLogger().exception(exc.message, exc_info=True)
+
+
+# This variables used when --to-date option is set.
+# Intended to read ACCURACY messages after first message with
+# date&time greater than one given in the --to-date option.
+# See consume_loop() function for more details
+COUNTDOWN_STARTED = False
+COUNTDOWN = 0
+
+
+def consume_loop(consumer, args, started, total_messages_read):
+    """
+    Consume messages from Apache Kafka.
+
+    :param consumer: Apache Kafka interface object
+    :type consumer: kafka.SimpleConsumer
+
+    :param args: parsed command line arguments
+    :type args: namespace
+
+    :param started: start time
+    :type started: seconds elapsed since Unix Epoch
+
+    :param total_messages_read: counter of all messages read
+    :type total_messages_read: integer
+
+    :rtype: integer - total messages count
+    """
+    global COUNTDOWN_STARTED, COUNTDOWN
+    for message in consumer:
+        if COUNTDOWN < 1:
+            break
+        lm_datetime = None
+        if args.from_date is not None or args.to_date is not None:
+            lm_datetime = get_message_datetime(message.message.value)
+            if lm_datetime is None:
+                break
+            if args.from_date is not None:
+                if lm_datetime < cmd_opts.from_date:
+                    continue
+            if args.to_date is not None:
+                if args.to_date < lm_datetime:
+                    COUNTDOWN_STARTED = True
+                    COUNTDOWN -= 1
+                    continue
+        if COUNTDOWN_STARTED:
+            COUNTDOWN -= 1
+        total_messages_read += 1
+        output(message.message.value)
+        if args.maxtime is not None and \
+           time.time() >= started + args.maxtime:
+            break
+        if args.maxmsgs is not None and \
+           total_messages_read >= args.maxmsgs:
+            break
+    return total_messages_read
+
+
 if __name__ == '__main__':
     cmd_opts = parse_cmd_args()
     # Initialize logging
@@ -127,6 +380,16 @@ if __name__ == '__main__':
     try:
         # connect to Kafka
         client = kafka.KafkaClient('%s:%d' % (cmd_opts.host, cmd_opts.port))
+        # Resolve offset of the earliest message (by message date and time)
+        start_offset = None
+        if cmd_opts.from_date:
+            (min_offset, max_offset) = get_min_max_offsets(client, cmd_opts.topic_name)
+            start_offset = search_offset_by_date(
+                client, cmd_opts.topic_name,
+                min_offset, max_offset, cmd_opts.from_date,
+                -cmd_opts.date_search_accuracy)
+            start_offset -= min_offset  # relative to the first message
+        COUNTDOWN = cmd_opts.date_search_accuracy
         # Create consumer object
         consumer = kafka.SimpleConsumer(
             client, cmd_opts.id, cmd_opts.topic_name, iter_timeout = 0.5,
@@ -139,26 +402,22 @@ if __name__ == '__main__':
             # seek the most recent message
             consumer.seek(offset=0, whence=LATEST_OFFSET)
             consumer.commit()
+        elif cmd_opts.from_date is not None:
+            consumer.seek(offset=start_offset, whence=EARLIEST_OFFSET)
+            consumer.commit()
         # start consuming
         total_messages_read = 0
         started = time.time()
         maxtime = cmd_opts.maxtime
         maxmsgs = cmd_opts.maxmsgs
-        while True:
+        while COUNTDOWN > 0:
             if maxtime is not None and time.time() >= started + maxtime:
                 break
             if maxmsgs is not None and total_messages_read >= maxmsgs:
                 break
             try:
-                for message in consumer:
-                    total_messages_read += 1
-                    output(message.message.value)
-                    if maxtime is not None and \
-                       time.time() >= started + maxtime:
-                        break
-                    if maxmsgs is not None and \
-                       total_messages_read >= maxmsgs:
-                        break
+                total_messages_read = consume_loop(
+                    consumer, cmd_opts, started, total_messages_read)
             except kafka.common.OffsetOutOfRangeError:
                 if total_messages_read == 0:
                     # This kind of error arises when we try to fetch
@@ -175,15 +434,8 @@ if __name__ == '__main__':
                     consumer.seek(0, 0)
                     consumer.commit()
                     # try to consume again:
-                    for message in consumer:
-                        total_messages_read += 1
-                        output(message.message.value)
-                        if maxtime is not None and \
-                           time.time() >= started + maxtime:
-                            break
-                        if maxmsgs is not None and \
-                           total_messages_read >= maxmsgs:
-                            break
+                    total_messages_read = consume_loop(
+                        consumer, cmd_opts, started, total_messages_read)
                 else:
                     raise
             if not cmd_opts.follow:

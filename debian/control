@@ -11,7 +11,6 @@ Build-Depends: debhelper (>= 8.0.0)
 
 Package: kafcat
 Architecture: all
-Depends: python, python-kafka
-Recommends: envx-python-commons
+Depends: python, python-kafka, python-ktlv, envx-python-commons, envx-etl-tools
 Description: Dump contents of an Apache Kafka topic to the stdout
  Dump contents of an Apache Kafka topic to the stdout.
