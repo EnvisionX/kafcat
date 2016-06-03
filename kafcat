@@ -6,8 +6,6 @@ Read Kafka topic contents and output it to the stdout.
 
 import argparse
 import logging
-import os.path
-import struct
 import sys
 import time
 
@@ -89,8 +87,8 @@ def parse_cmd_args():
         '--human', action='store_true',
         help='DEPRECATED. Use pipe to envx-log-decoder instead.')
     parser.add_argument(
-        '--debug', action = 'store_true',
-        help = 'Be very-very verbose (use stderr).')
+        '--debug', action='store_true',
+        help='Be very-very verbose (use stderr).')
     parser.add_argument(
         'topic_name',
         help='Kafka topic to read.')
@@ -154,13 +152,6 @@ def port_number(string):
     if 0 < port_number <= 0xffff:
         return port_number
     raise ValueError
-
-
-try:
-    from envx_commons import k2n
-except Exception:
-    def k2n(key):
-        return key
 
 
 def output(message):
@@ -368,9 +359,9 @@ if __name__ == '__main__':
     cmd_opts = parse_cmd_args()
     # Initialize logging
     logging.basicConfig(
-        format = '%(asctime)s %(name)s %(levelname)1.1s %(message)s',
-        datefmt = '%Y-%m-%d %H:%M:%S',
-        level = logging.DEBUG if cmd_opts.debug else logging.WARNING)
+        format='%(asctime)s %(name)s %(levelname)1.1s %(message)s',
+        datefmt='%Y-%m-%d %H:%M:%S',
+        level=logging.DEBUG if cmd_opts.debug else logging.WARNING)
     if cmd_opts.human:
         logging.getLogger('kafcat').critical(
             '--human command line option is not supported anymore.'
@@ -394,7 +385,7 @@ if __name__ == '__main__':
         COUNTDOWN = cmd_opts.date_search_accuracy
         # Create consumer object
         consumer = kafka.SimpleConsumer(
-            client, cmd_opts.id, cmd_opts.topic_name, iter_timeout = 0.5,
+            client, cmd_opts.id, cmd_opts.topic_name, iter_timeout=0.5,
             fetch_size_bytes=65535, buffer_size=65535, max_buffer_size=None)
         if cmd_opts.begin:
             # seek very first message
