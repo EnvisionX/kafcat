@@ -199,8 +199,9 @@ def get_min_max_offsets(client, topic):
         [kafka.common.OffsetRequest(topic, partition, -1, 1)])
     response = responses[0]
     (max_offset, ) = response.offsets
-    max_offset -= 1  # Kafka responses with offset of the next
-                     # message which will be appended to the partition
+    # Kafka responses with offset of the next
+    # message which will be appended to the partition
+    max_offset -= 1
     if min_offset < max_offset:
         return (min_offset, max_offset)
     logging.getLogger().error(
@@ -383,7 +384,8 @@ if __name__ == '__main__':
         # Resolve offset of the earliest message (by message date and time)
         start_offset = None
         if cmd_opts.from_date:
-            (min_offset, max_offset) = get_min_max_offsets(client, cmd_opts.topic_name)
+            (min_offset, max_offset) = get_min_max_offsets(
+                client, cmd_opts.topic_name)
             start_offset = search_offset_by_date(
                 client, cmd_opts.topic_name,
                 min_offset, max_offset, cmd_opts.from_date,
