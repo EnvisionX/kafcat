@@ -2,9 +2,9 @@ Source: kafcat
 Priority: optional
 Maintainer: Aleksey Morarash <aleksey.morarash@gmail.com>
 Section: python
-Homepage: https://github.com/EnvisionX/kafcat
-VCS-Browser: https://github.com/EnvisionX/kafcat
-VCS-Git: https://github.com/EnvisionX/kafcat.git
+Homepage: https://github.com/ENVISIONX/kafcat
+VCS-Browser: https://github.com/ENVISIONX/kafcat
+VCS-Git: https://github.com/ENVISIONX/kafcat.git
 XS-Python-Version: 2.7
 Standards-Version: 3.9.3
 Build-Depends: debhelper (>= 8.0.0)
