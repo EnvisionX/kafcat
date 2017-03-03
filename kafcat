@@ -13,17 +13,18 @@ import kafka
 import kafka.common
 import ktlv
 
+import envx_adcc
 import envx_commons
 import envx_etl
 
+from envx_adcc import MAGIC_KTLV_MARKER as ADCAST_MARKER
+from envx_commons.log_defs import MAGIC_KTLV_MARKER as EME_MARKER
 
 DEF_DATE_SEARCH_ACCURACY = 100
 
 # See details in kafka.consumer.SimpleConsumer.seek()
 EARLIEST_OFFSET = 0
 LATEST_OFFSET = 2
-
-MAGIC_KTLV_MARKER = '\xc0\xdeKTLV'
 
 
 def parse_cmd_args():
@@ -161,8 +162,11 @@ def output(message):
     :param message: log message fetched from Apache Kafka.
     :type message: string
     """
-    if message.startswith(MAGIC_KTLV_MARKER):
-        # It is a binary object, encoded with KTLV.
+    if message.startswith(EME_MARKER):
+        # It is a EME Project binary object, encoded with KTLV.
+        sys.stdout.write(message)
+    elif message.startswith(ADCAST_MARKER):
+        # It is a AdCast Project binary object, encoded with KTLV.
         sys.stdout.write(message)
     else:
         # It is a text message. Suffix it with newline char.
@@ -261,13 +265,19 @@ def get_message_datetime(message):
     """
     if message is None:
         return None
-    if message.startswith(envx_commons.MAGIC_KTLV_MARKER):
-        # Binary log message
-        message = message[len(envx_commons.MAGIC_KTLV_MARKER) + 2:]
+    if message.startswith(EME_MARKER):
+        # EME Project binary log message
+        message = message[len(EME_MARKER) + 2:]
         decoded = ktlv.decd(message)
         (_, fvalue) = decoded[envx_commons.K_TIMESTAMP]
         timestamp = envx_etl.convert_timestamp(fvalue)
         return time.gmtime(timestamp)
+    elif message.startswith(ADCAST_MARKER):
+        # AdCast binary log message
+        message = message[len(ADCAST_MARKER) + 2:]
+        decoded = ktlv.decd(message)
+        (_, fvalue) = decoded[envx_adcc.K_TIMESTAMP]
+        return time.gmtime(fvalue)
     logging.getLogger().error(
         'unknown message type, cannot fetch date and time: %r',
         message)
