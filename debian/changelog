@@ -1,3 +1,13 @@
+kafcat (1.1.0) unstable; urgency=low
+
+  * add support for AdCast binary log messages
+  * gitignore *.swp files
+  * fix company name
+  * non functional: partially satisfy pylint
+  * non functional: satisfy pep8 tool
+
+ -- Aleksey Morarash <aleksey.morarash@gmail.com>  Fri, 03 Mar 2017 14:20:44 +0200
+
 kafcat (1.0.0) unstable; urgency=low
 
   * implement --from-date and --to-date cmd options
