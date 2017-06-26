@@ -169,8 +169,10 @@ def output(message):
         # It is a AdCast Project binary object, encoded with KTLV.
         sys.stdout.write(message)
     else:
-        # It is a text message. Suffix it with newline char.
-        sys.stdout.write(message + '\n')
+        # It is a text message. Suffix it with newline char, if needed
+        if message[-1:] != '\n':
+            message += '\n'
+        sys.stdout.write(message)
 
 
 def get_min_max_offsets(client, topic):
