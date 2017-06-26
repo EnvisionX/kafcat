@@ -1,3 +1,9 @@
+kafcat (1.1.1) unstable; urgency=low
+
+  * text plain messages output: add excatly one newline
+
+ -- Aleksey Morarash <aleksey.morarash@gmail.com>  Mon, 26 Jun 2017 09:41:33 +0300
+
 kafcat (1.1.0) unstable; urgency=low
 
   * add support for AdCast binary log messages
